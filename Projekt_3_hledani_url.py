@@ -6,7 +6,23 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 
-# nejdriv najdeme vsechny odkazy na strance kraju
+# zaciname na url konkretniho uzemi!!!
+# takze pro ten ukazkovy Prostejov je to parametr:
+# https://volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=12&xnumnuts=7103
+# 1. jde o to vytvorit url adresy obci    
+# 1.1 vytvorit ciselnik obci v ramci uzemniho celku (Prostejov)
+# 1.2 zjistit odlisnosti v url obci oproti uzemnimu celku
+#    https://volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=12&xnumnuts=7103
+
+#    https://volby.cz/pls/ps2017nss/ps311?xjazyk=CZ&xkraj=12&xobec=506761&xvyber=7103
+#    https://volby.cz/pls/ps2017nss/ps311?xjazyk=CZ&xkraj=12&xobec=589268&xvyber=7103
+#    rozdíl je ps32? vs 311?x a pridani 506761&xvyber
+# 2. vytvorit na zaklade rozdilu a ciselniku obci url kazde obce
+# 3. v rámci iterace pres vsechny obce je vsechny vyscrapovat
+# 4. upravit vysledky pro export do csv (asi listy)
+# 5. export do csv
+# 6. vytvorit vsechny nalezitosti: hlavicka v kodu, readme, requirements.txt atd.
+
 parametr = "6204"
 vychozi_url_kraju = "https://volby.cz/pls/ps2017nss/ps3?xjazyk=CZ"
 stranka_kraju = requests.get(vychozi_url_kraju).text
