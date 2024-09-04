@@ -21,6 +21,9 @@ from urllib.parse import urljoin
 # 5. upravit vysledky pro export do csv (asi listy)
 # 6. export do csv
 # 7. vytvorit vsechny nalezitosti: hlavicka v kodu, readme, requirements.txt atd.
+
+def nacti_url_okres(url_okres):
+    ...
 url_okres = "https://volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=1&xnumnuts=1100"
 def nacti_url_okres(par_1):
     obsah_stranky_okres = requests.get(par_1).text
