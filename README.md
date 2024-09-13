@@ -1,2 +1,3 @@
 projekt_3.py
-Třetí projekt Engeto Python akademie
+Třetí projekt Engeto Python akademie.
+
