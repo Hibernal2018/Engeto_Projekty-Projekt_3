@@ -11,8 +11,6 @@ import requests
 from bs4 import BeautifulSoup
 import sys
 
-# 7. vytvorit vsechny nalezitosti: readme, requirements.txt atd.
-
 def zkontroluj_vstupni_argumenty(argumenty):
     """
     Zkontroluje vlastnosti vstupních argumentů
