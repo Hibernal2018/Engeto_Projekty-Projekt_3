@@ -35,11 +35,12 @@ def nacti_vstupni_argumenty():
     Nacte vstupní argumenty
 
     Returns: 
-        str: url_okres, str: vystup_csv
+        str: argument_1
+        str: argument_2
     """
     try:
         argument_1 = sys.argv[1]
-        argument_2 = os.path.join(r"D:\Privat_doma\Python_Engeto\Moje_cviceni\Projekt_3", sys.argv[2])
+        argument_2 = os.path.join(r"C:\Users\Milan\Desktop\Projekt_3", sys.argv[2])
     except Exception as e:
         print("Nastala neočekávaná chyba. Ukončuji program.")
         print(e)
@@ -81,41 +82,64 @@ def dopln_url_obci(vsechny_adresy_okresu):
             doplnek_url_obci.append(href)
     return doplnek_url_obci
     
-def ziskej_url_obci(url_obce_1_cast, doplnek_url_obci):
+def ziskej_url_obci(url_obce_1_cast, doplnek_adresy_obci):
     """
     Vytvari url s vysledky vsech obci a z nich ziskava kod obce
 
     Returns:
-        list: url_vsech_obci, list(dict): vysledky
+        list: url_vsech_obci
     """
     url_vsech_obci = []
-    [url_vsech_obci.append(url_obce_1_cast + url_obce_2_cast) for url_obce_2_cast in doplnek_url_obci]
+    [url_vsech_obci.append(url_obce_1_cast + url_obce_2_cast) for url_obce_2_cast in doplnek_adresy_obci]
     return url_vsech_obci
 
-def ziskej_kod_obce(adresa_obce):
-    pomocny_kod_obce = adresa_obce.split("obec=")
-    pomocny_kod_obce = pomocny_kod_obce[1].split("&")
-    kod_obce = pomocny_kod_obce[0]
-    return kod_obce
+def jedna_adresa_obce(adresa_obci):
+    """
+    Ze seznamu vsech nalezenych url obci odstrani duplicity
+
+    Returns:
+        list: adresy_vsech_obci
+    """
+    adresy_vsech_obci = []
+    for adresa_obce in adresa_obci:
+        if adresa_obce not in adresy_vsech_obci:
+            adresy_vsech_obci.append(adresa_obce)
+
+    return adresy_vsech_obci
 
 def nacti_obsah_stranky_obce(adresa_obce):
     """
     Nacte obsah stranky obsahujici vysledky obce
 
     Return:
-        bs: html obce
+        bs: html_obce
     """
     with requests.get(adresa_obce) as odpoved:
         html_obce = BeautifulSoup(odpoved.text, "html.parser")
     return html_obce
-  
-def ziskej_nazev_obce(stranka_obce):
+
+def ziskej_kod_obce(adresa_obce, vysledky_obce):
+    """
+    Ziska kod obce, a pokud jeste neni v seznamu vysledku obce, prida ho do nej
+
+    Returns:
+        dict: vysledky_obce
+    """
+    pomocny_kod_obce = adresa_obce.split("obec=")
+    pomocny_kod_obce = pomocny_kod_obce[1].split("&")
+    kod_obce = pomocny_kod_obce[0]
+    if kod_obce not in vysledky_obce:
+        vysledky_obce.update({"code": kod_obce})
+
+    return vysledky_obce
+
+def ziskej_nazev_obce(stranka_obce, vysledky_obce):
     """
     Najde vsechny tagy "h3" a vybere z nich ty obsahujíci slovo "obec".
-    Prevede je na text, vybere a ocisti nazev obce a prida ho do listu vysledky
+    Prevede je na text, vybere a ocisti nazev obce a prida ho do listu vysledky_jmena_obci
 
     Return:
-        str: vybrana_obec
+        dict: vysledky_obce
     """
     vsechny_h3 = list(stranka_obce.find_all("h3"))
     
@@ -123,27 +147,39 @@ def ziskej_nazev_obce(stranka_obce):
         obec = obec.get_text()
         if "Obec:" in obec:
             vybrana_obec = (obec.split(": ")[1:])[0].strip()
-    return vybrana_obec
+    if vybrana_obec not in vysledky_obce:
+            vysledky_obce.update({"location": vybrana_obec})
 
-def ziskej_souhrny_obce(stranka_obce):
+    return vysledky_obce
+
+def ziskej_souhrny_obce(stranka_obce, vysledky_obce):
     """
-    V obsahu stranky obce najde podle zadanych kriterii pocet volicu, odevzdanych obalek a platnych hlasu a prida je do listu vysledky.
+    V obsahu stranky obce najde podle zadanych kriterii pocet volicu, odevzdanych obalek a platnych hlasu a prida je do vysledky_obce.
 
     Returns:
-        str: pocet_volicu, pocet_obalek, pocet_platnych
+        dict: vysledky_obce
     """
     pocet_volicu = stranka_obce.find("td", class_="cislo", headers="sa2").get_text().replace("\xa0", "")
-    pocet_obalek = stranka_obce.find("td", class_="cislo", headers="sa5").get_text().replace("\xa0", "")
-    pocet_platnych = stranka_obce.find("td", class_="cislo", headers="sa6").get_text().replace("\xa0", "")
-    return pocet_volicu, pocet_obalek, pocet_platnych
+    vysledky_obce.update({"registered": pocet_volicu})
 
-def ziskej_hlasy_stran(stranky_obce):
+    pocet_obalek = stranka_obce.find("td", class_="cislo", headers="sa5").get_text().replace("\xa0", "")
+    vysledky_obce.update({"envelopes": pocet_obalek})
+
+    pocet_platnych = stranka_obce.find("td", class_="cislo", headers="sa6").get_text().replace("\xa0", "")
+    vysledky_obce.update({"valid": pocet_platnych})
+
+    return vysledky_obce
+
+def ziskej_strany_a_hlasy(stranky_obce):
     """
     Vytvori list hlasu ze vsech tabulek vysledku voleb v dane obci
 
     Return:
-        list: hlasy_seznam
+        ResultSet: strany
+        ResultSet: hlasy_obec
     """
+    strany = obsah_stranky_obce.find_all("td", class_="overflow_name")
+
     hlasy_obec = stranky_obce.find_all("td", class_="cislo", headers="t1sa2 t1sb3")
     if len(stranky_obce) > 3:
         hlasy_t2 = stranky_obce.find_all("td", class_="cislo", headers="t2sa2 t2sb3")
@@ -151,9 +187,41 @@ def ziskej_hlasy_stran(stranky_obce):
     if len(stranky_obce) > 4:
         hlasy_t3 = stranky_obce.find_all("td", class_="cislo", headers="t3sa2 t3sb3")
         hlasy_obec += hlasy_t3
-    return hlasy_obec
+        
+    return strany, hlasy_obec
 
-def export_do_csv(vystupni_soubor, hlavicka):
+def pridej_strany_s_hlasy(nazev_strany, hlasy_V_obci, vysledky_obce):
+    """
+    Iteruje pres indexy nazev_strany a pridava v kazde iteraci do dictu vysledky_obce nazev strany a pocet hlasu
+
+    Return:
+        dict: vysledky_obce
+    """
+    for j in range(len(nazev_strany)):
+          strana_j = nazev_strany[j].get_text()
+          hlas_j = hlasy_V_obci[j].get_text().replace("\xa0", "")
+          vysledky_obce.update({strana_j: hlas_j})
+
+    return vysledky_obce
+
+def pridej_a_zkontroluj_vysledky(vysledky):
+    """
+    Prida vysledek obce do finalniho vysledky a vytvori zahlavi pro export
+
+    Return:
+        list(dict): vysledky
+        list: zahlavi
+    """
+    zahlavi = []
+    vysledky.append(vysledky_obce)
+    if vysledky:
+        zahlavi = list(vysledky[0].keys())
+    else:
+        print("Nedošlo k načtení výsledků. Ověřte správnost zadané url adresy. Zkuste to znovu.")
+        sys.exit(1)
+    return vysledky, zahlavi
+
+def export_do_csv(vystupni_soubor, vysledky, hlavicka):
     """
     Exportuje ziskane vysledky do souboru csv
     """
@@ -162,68 +230,32 @@ def export_do_csv(vystupni_soubor, hlavicka):
         vysledky_writer = csv.DictWriter(vysledky_csv, fieldnames=hlavicka, delimiter=",")
         vysledky_writer.writeheader()
         vysledky_writer.writerows(vysledky)
-
+    print("UKONČUJI:", sys.argv[0])   
+     
 if __name__ == "__main__":
     
-    adresy_vsech_obci = []
     vysledky = []
-    vysledky_kod_obci = []
-    vysledky_jmena_obci = []
-    zahlavi = []
-
+    
     zkontroluj_vstupni_argumenty(sys.argv)
     url_okres, vystup_csv = nacti_vstupni_argumenty()
     vsechny_url_okresu = nacti_stranku_okresu(url_okres)
-    doplnek_adresy_obci = dopln_url_obci(vsechny_url_okresu)
+    doplnek_url_obci = dopln_url_obci(vsechny_url_okresu)
 
-    adresy_obci = ziskej_url_obci("https://volby.cz/pls/ps2017nss/", doplnek_adresy_obci)
-    for adresa_obce in adresy_obci:
-        if adresa_obce not in adresy_vsech_obci:
-            adresy_vsech_obci.append(adresa_obce)
-    
+    url_obci = ziskej_url_obci("https://volby.cz/pls/ps2017nss/", doplnek_url_obci)
+
+    url_obce = jedna_adresa_obce(url_obci)
+            
     i = -1
-    for url_obce in adresy_vsech_obci:
+    for url_kazde_obce in url_obce:
         vysledky_obce = {}
-        vysledky_strany = []
-        vysledky_hlasy = []
         i += 1
 
-        obsah_stranky_obce = nacti_obsah_stranky_obce(url_obce)
-        
-        cislo_obce = ziskej_kod_obce(adresy_vsech_obci[i])
-        if cislo_obce not in vysledky_kod_obci:
-            vysledky_kod_obci.append(cislo_obce)
+        obsah_stranky_obce = nacti_obsah_stranky_obce(url_kazde_obce)
+        cislo_obce = ziskej_kod_obce(url_obce[i], vysledky_obce)
+        nazev_obce = ziskej_nazev_obce(obsah_stranky_obce, vysledky_obce)
+        ziskej_souhrny_obce(obsah_stranky_obce, vysledky_obce)
+        strany, hlasy_obec = ziskej_strany_a_hlasy(obsah_stranky_obce)
+        pridej_strany_s_hlasy(strany, hlasy_obec, vysledky_obce)
+        vysledky, zahlavi = pridej_a_zkontroluj_vysledky(vysledky)
 
-        nazev_obce = ziskej_nazev_obce(obsah_stranky_obce)
-        if  nazev_obce not in vysledky_jmena_obci:
-            vysledky_jmena_obci.append(nazev_obce)
-
-        volici, obalky, platne = ziskej_souhrny_obce(obsah_stranky_obce)
-        
-        strany = obsah_stranky_obce.find_all("td", class_="overflow_name")
-        [vysledky_strany.append(strana.get_text()) for strana in strany]
-            
-        hlasy = ziskej_hlasy_stran(obsah_stranky_obce)
-        [vysledky_hlasy.append(hlas.get_text().replace("\xa0", "")) for hlas in hlasy]
-            
-        souhrn = {
-            "code": vysledky_kod_obci[i], 
-            "location": vysledky_jmena_obci[i], 
-            "registered": volici, 
-            "envelopes": obalky, 
-            "valid": platne
-            }
-        vysledky_obce.update(souhrn)
-        
-        [vysledky_obce.update({vysledky_strany[j]: vysledky_hlasy[j]}) for j in range (len(vysledky_strany))]
-            
-        vysledky.append(vysledky_obce)
-
-    if vysledky:
-        zahlavi = list(vysledky[0].keys())
-    else:
-        print("Nedošlo k načtení výsledků. Ověřte správnost zadané url adresy. Zkuste to znovu.")
-        sys.exit(1)
-    
-    export_do_csv(vystup_csv, zahlavi)
-    print("UKONČUJI:", sys.argv[0])       
+    export_do_csv(vystup_csv, vysledky, zahlavi)     
